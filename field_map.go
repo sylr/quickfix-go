@@ -59,9 +59,7 @@ func (m *FieldMap) initWithOrdering(ordering tagOrder) {
 //Tags returns all of the Field Tags in this FieldMap
 func (m FieldMap) Tags() []Tag {
 	tags := make([]Tag, 0, len(m.tagLookup))
-	for t := range m.tagLookup {
-		tags = append(tags, t)
-	}
+	tags = append(tags, m.tags...)
 
 	return tags
 }
@@ -207,7 +205,7 @@ func (m *FieldMap) CopyInto(to *FieldMap) {
 	to.tagLookup = make(map[Tag]field)
 	for tag, f := range m.tagLookup {
 		clone := make(field, 1)
-		clone[0] = f[0]
+		clone = f
 		to.tagLookup[tag] = clone
 	}
 	to.tags = make([]Tag, len(m.tags))
@@ -219,9 +217,10 @@ func (m *FieldMap) add(f field) {
 	t := fieldTag(f)
 	if _, ok := m.tagLookup[t]; !ok {
 		m.tags = append(m.tags, t)
+		m.tagLookup[t] = f
+	} else {
+		m.tagLookup[t] = append(m.tagLookup[t], f...)
 	}
-
-	m.tagLookup[t] = f
 }
 
 func (m *FieldMap) getOrCreate(tag Tag) field {
