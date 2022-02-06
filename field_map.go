@@ -44,8 +44,11 @@ type FieldMap struct {
 // ascending tags
 func normalFieldOrder(i, j Tag) bool { return i < j }
 
+// do not sort tags
+func noSortOrder(i, j Tag) bool { return false }
+
 func (m *FieldMap) init() {
-	m.initWithOrdering(normalFieldOrder)
+	m.initWithOrdering(noSortOrder)
 }
 
 func (m *FieldMap) initWithOrdering(ordering tagOrder) {
