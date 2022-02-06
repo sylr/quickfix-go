@@ -64,6 +64,11 @@ func (m FieldMap) Tags() []Tag {
 	return tags
 }
 
+//Values returns the tag values
+func (m FieldMap) Values(t Tag) field {
+	return m.tagLookup[t]
+}
+
 //Get parses out a field in this FieldMap. Returned reject may indicate the field is not present, or the field value is invalid.
 func (m FieldMap) Get(parser Field) MessageRejectError {
 	return m.GetField(parser.Tag(), parser)
@@ -83,6 +88,20 @@ func (m FieldMap) GetField(tag Tag, parser FieldValueReader) MessageRejectError 
 	}
 
 	if err := parser.Read(f[0].value); err != nil {
+		return IncorrectDataFormatForValue(tag)
+	}
+
+	return nil
+}
+
+//GetFieldIndex parses of a field with Tag tag. Returned reject may indicate the field is not present, or the field value is invalid.
+func (m FieldMap) GetFieldIndex(tag Tag, parser FieldValueReader, i int) MessageRejectError {
+	f, ok := m.tagLookup[tag]
+	if !ok {
+		return ConditionallyRequiredFieldMissing(tag)
+	}
+
+	if err := parser.Read(f[i].value); err != nil {
 		return IncorrectDataFormatForValue(tag)
 	}
 
@@ -145,6 +164,19 @@ func (m FieldMap) GetString(tag Tag) (string, MessageRejectError) {
 		return "", err
 	}
 	return string(val), nil
+}
+
+//GetStrings is a GetField wrapper for string fields
+func (m FieldMap) GetStrings(tag Tag) ([]string, MessageRejectError) {
+	var strs []string
+	for i := range m.tagLookup[tag] {
+		var val FIXString
+		if err := m.GetFieldIndex(tag, &val, i); err != nil {
+			return []string{""}, err
+		}
+		strs = append(strs, string(val))
+	}
+	return strs, nil
 }
 
 //GetGroup is a Get function specific to Group Fields.
