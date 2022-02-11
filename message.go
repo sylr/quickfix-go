@@ -379,3 +379,7 @@ func (m *Message) cook() {
 	checkSum := (m.Header.total() + m.Body.total() + m.Trailer.total()) % 256
 	m.Trailer.SetString(tagCheckSum, formatCheckSum(checkSum))
 }
+
+func (m *Message) Cook() {
+	m.cook()
+}
