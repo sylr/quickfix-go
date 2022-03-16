@@ -247,11 +247,13 @@ func (m *FieldMap) CopyInto(to *FieldMap) {
 
 func (m *FieldMap) add(f field) {
 	t := fieldTag(f)
-	if _, ok := m.tagLookup[t]; !ok {
+	if _, ok := m.tagLookup[t]; ok {
+		tlen := len(m.tagLookup[t])
+		flen := len(f)
+		m.tagLookup[t] = append(m.tagLookup[t][:tlen:tlen], f[:flen:flen]...)
+	} else {
 		m.tags = append(m.tags, t)
 		m.tagLookup[t] = f
-	} else {
-		m.tagLookup[t] = append(m.tagLookup[t], f...)
 	}
 }
 
