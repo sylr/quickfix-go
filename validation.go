@@ -341,7 +341,7 @@ func validateField(d *datadictionary.DataDictionary, validFields datadictionary.
 		fallthrough
 	case "MONTHYEAR":
 		fallthrough
-	case "LOCALMKTDATE", "DATE":
+	case "LOCALMKTTIME", "LOCALMKTDATE", "DATE":
 		fallthrough
 	case "EXCHANGE":
 		fallthrough
@@ -359,6 +359,8 @@ func validateField(d *datadictionary.DataDictionary, validFields datadictionary.
 		fallthrough
 	case "TZTIMESTAMP":
 		fallthrough
+	case "XID", "XIDREF":
+		fallthrough
 	case "STRING":
 		prototype = new(FIXString)
 
@@ -372,6 +374,8 @@ func validateField(d *datadictionary.DataDictionary, validFields datadictionary.
 	case "NUMINGROUP":
 		fallthrough
 	case "SEQNUM":
+		fallthrough
+	case "TAGNUM":
 		fallthrough
 	case "INT":
 		prototype = new(FIXInt)
