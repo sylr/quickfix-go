@@ -50,6 +50,10 @@ func (tv TagValue) String() string {
 	return string(tv.bytes)
 }
 
+func (tv TagValue) Value() string {
+	return string(tv.value)
+}
+
 func (tv TagValue) Tag() Tag {
 	return tv.tag
 }

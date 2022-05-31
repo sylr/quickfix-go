@@ -97,6 +97,9 @@ type Message struct {
 //ToMessage returns the message itself
 func (m *Message) ToMessage() *Message { return m }
 
+// GetFields returns fields as they appear in the raw message
+func (m *Message) GetFields() []TagValue { return m.fields }
+
 //parseError is returned when bytes cannot be parsed as a FIX message.
 type parseError struct {
 	OrigError string
@@ -248,6 +251,10 @@ func ParseMessageWithDataDictionary(
 
 }
 
+func IsHeaderField(tag Tag, dataDict *datadictionary.DataDictionary) bool {
+	return isHeaderField(tag, dataDict)
+}
+
 func isHeaderField(tag Tag, dataDict *datadictionary.DataDictionary) bool {
 	if tag.IsHeader() {
 		return true
@@ -259,6 +266,10 @@ func isHeaderField(tag Tag, dataDict *datadictionary.DataDictionary) bool {
 
 	_, ok := dataDict.Header.Fields[int(tag)]
 	return ok
+}
+
+func IsTrailerField(tag Tag, dataDict *datadictionary.DataDictionary) bool {
+	return isTrailerField(tag, dataDict)
 }
 
 func isTrailerField(tag Tag, dataDict *datadictionary.DataDictionary) bool {
