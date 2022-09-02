@@ -14,7 +14,7 @@ import (
 	"github.com/quickfixgo/quickfix/config"
 )
 
-//Acceptor accepts connections from FIX clients and manages the associated sessions.
+// Acceptor accepts connections from FIX clients and manages the associated sessions.
 type Acceptor struct {
 	app                   Application
 	settings              *Settings
@@ -42,7 +42,7 @@ type ConnectionValidator interface {
 	Validate(netConn net.Conn, session SessionID) error
 }
 
-//Start accepting connections.
+// Start accepting connections.
 func (a *Acceptor) Start() (err error) {
 	socketAcceptHost := ""
 	if a.settings.GlobalSettings().HasSetting(config.SocketAcceptHost) {
@@ -111,7 +111,7 @@ func (a *Acceptor) Start() (err error) {
 	return
 }
 
-//Stop logs out existing sessions, close their connections, and stop accepting new connections.
+// Stop logs out existing sessions, close their connections, and stop accepting new connections.
 func (a *Acceptor) Stop() {
 	defer func() {
 		_ = recover() // suppress sending on closed channel error
@@ -130,7 +130,7 @@ func (a *Acceptor) Stop() {
 	a.sessionGroup.Wait()
 }
 
-//Get remote IP address for a given session.
+// Get remote IP address for a given session.
 func (a *Acceptor) RemoteAddr(sessionID SessionID) (net.Addr, bool) {
 	addr, ok := a.sessionAddr.Load(sessionID)
 	if !ok || addr == nil {
@@ -140,7 +140,7 @@ func (a *Acceptor) RemoteAddr(sessionID SessionID) (net.Addr, bool) {
 	return val, ok
 }
 
-//NewAcceptor creates and initializes a new Acceptor.
+// NewAcceptor creates and initializes a new Acceptor.
 func NewAcceptor(app Application, storeFactory MessageStoreFactory, settings *Settings, logFactory LogFactory) (a *Acceptor, err error) {
 	a = &Acceptor{
 		app:             app,
@@ -393,7 +393,8 @@ LOOP:
 // Use it when you need a custom authentication logic that includes lower level interactions,
 // like mTLS auth or IP whitelistening.
 // To remove a previously set validator call it with a nil value:
-// 	a.SetConnectionValidator(nil)
+//
+//	a.SetConnectionValidator(nil)
 func (a *Acceptor) SetConnectionValidator(validator ConnectionValidator) {
 	a.connectionValidator = validator
 }
