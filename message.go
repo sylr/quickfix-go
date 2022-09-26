@@ -97,6 +97,9 @@ type Message struct {
 //ToMessage returns the message itself
 func (m *Message) ToMessage() *Message { return m }
 
+// GetFields returns fields as they appear in the raw message
+func (m *Message) GetFields() []TagValue { return m.fields }
+
 //parseError is returned when bytes cannot be parsed as a FIX message.
 type parseError struct {
 	OrigError string
@@ -378,4 +381,8 @@ func (m *Message) cook() {
 	m.Header.SetInt(tagBodyLength, bodyLength)
 	checkSum := (m.Header.total() + m.Body.total() + m.Trailer.total()) % 256
 	m.Trailer.SetString(tagCheckSum, formatCheckSum(checkSum))
+}
+
+func (m *Message) Cook() {
+	m.cook()
 }
