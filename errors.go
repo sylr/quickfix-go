@@ -108,6 +108,11 @@ func ValueIsIncorrect(tag Tag) MessageRejectError {
 	return NewMessageRejectError("Value is incorrect (out of range) for this tag", rejectReasonValueIsIncorrect, &tag)
 }
 
+// ValueIsIncorrectWithValue returns an error indicating a field with value that is not valid.
+func ValueIsIncorrectWithValue(tag Tag, value string) MessageRejectError {
+	return NewMessageRejectError(fmt.Sprintf("Value (%s) is incorrect for this tag (%d)", value, tag), rejectReasonValueIsIncorrect, &tag)
+}
+
 //ConditionallyRequiredFieldMissing indicates that the requested field could not be found in the FIX message.
 func ConditionallyRequiredFieldMissing(tag Tag) MessageRejectError {
 	return NewBusinessMessageRejectError(fmt.Sprintf("Conditionally Required Field Missing (%d)", tag), rejectReasonConditionallyRequiredFieldMissing, &tag)
