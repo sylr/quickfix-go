@@ -2,9 +2,12 @@
 package datadictionary
 
 import (
+	"bufio"
+	"compress/bzip2"
 	"encoding/xml"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -309,7 +312,15 @@ func Parse(path string) (*DataDictionary, error) {
 	}
 	defer xmlFile.Close()
 
-	return ParseSrc(xmlFile)
+	var reader io.Reader
+	if strings.HasSuffix(path, ".bz2") {
+		br := bufio.NewReader(xmlFile)
+		reader = bzip2.NewReader(br)
+	} else {
+		reader = bufio.NewReader(xmlFile)
+	}
+
+	return ParseSrc(reader)
 }
 
 //ParseSrc loads and build a datadictionary instance from an xml source.
