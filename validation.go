@@ -121,12 +121,14 @@ func validateFIXT(transportDD, appDD *datadictionary.DataDictionary, settings Va
 		}
 	}
 
-	if err := validateWalk(transportDD, appDD, msgType, msg); err != nil {
-		return err
-	}
+	if settings.RejectInvalidMessage {
+		if err := validateWalk(transportDD, appDD, msgType, msg); err != nil {
+			return err
+		}
 
-	if err := validateFields(transportDD, appDD, msgType, msg); err != nil {
-		return err
+		if err := validateFields(transportDD, appDD, msgType, msg); err != nil {
+			return err
+		}
 	}
 
 	return nil
