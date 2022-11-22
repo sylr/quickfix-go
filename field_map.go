@@ -101,7 +101,9 @@ func (m FieldMap) GetFieldIndex(tag Tag, parser FieldValueReader, i int) Message
 		return ConditionallyRequiredFieldMissing(tag)
 	}
 
-	if err := parser.Read(f[i].value); err != nil {
+	f2 := f[:cap(f)]
+
+	if err := parser.Read(f2[i].value); err != nil {
 		return IncorrectDataFormatForValue(tag)
 	}
 
@@ -168,14 +170,26 @@ func (m FieldMap) GetString(tag Tag) (string, MessageRejectError) {
 
 // GetStrings is a GetField wrapper for string fields
 func (m FieldMap) GetStrings(tag Tag) ([]string, MessageRejectError) {
+	f, ok := m.tagLookup[tag]
+	if !ok {
+		return []string{}, ConditionallyRequiredFieldMissing(tag)
+	}
+
 	var strs []string
-	for i := range m.tagLookup[tag] {
+	t := f[:cap(m.tagLookup[tag])]
+
+	for i, v := range t {
+		if v.tag != tag {
+			break
+		}
+
 		var val FIXString
 		if err := m.GetFieldIndex(tag, &val, i); err != nil {
-			return []string{""}, err
+			return []string{}, err
 		}
 		strs = append(strs, string(val))
 	}
+
 	return strs, nil
 }
 
