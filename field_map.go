@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//field stores a slice of TagValues
+// field stores a slice of TagValues
 type field []TagValue
 
 func fieldTag(f field) Tag {
@@ -36,7 +36,7 @@ func (t tagSort) Len() int           { return len(t.tags) }
 func (t tagSort) Swap(i, j int)      { t.tags[i], t.tags[j] = t.tags[j], t.tags[i] }
 func (t tagSort) Less(i, j int) bool { return t.compare(t.tags[i], t.tags[j]) }
 
-//FieldMap is a collection of fix fields that make up a fix message.
+// FieldMap is a collection of fix fields that make up a fix message.
 type FieldMap struct {
 	tagLookup map[Tag]field
 	tagSort
@@ -59,7 +59,7 @@ func (m *FieldMap) initWithOrdering(ordering tagOrder) {
 	m.compare = ordering
 }
 
-//Tags returns all of the Field Tags in this FieldMap
+// Tags returns all of the Field Tags in this FieldMap
 func (m FieldMap) Tags() []Tag {
 	m.rwLock.RLock()
 	defer m.rwLock.RUnlock()
@@ -80,12 +80,12 @@ func (m FieldMap) Values(t Tag) field {
 	return m.tagLookup[t]
 }
 
-//Get parses out a field in this FieldMap. Returned reject may indicate the field is not present, or the field value is invalid.
+// Get parses out a field in this FieldMap. Returned reject may indicate the field is not present, or the field value is invalid.
 func (m FieldMap) Get(parser Field) MessageRejectError {
 	return m.GetField(parser.Tag(), parser)
 }
 
-//Has returns true if the Tag is present in this FieldMap
+// Has returns true if the Tag is present in this FieldMap
 func (m FieldMap) Has(tag Tag) bool {
 	m.rwLock.RLock()
 	defer m.rwLock.RUnlock()
@@ -94,7 +94,7 @@ func (m FieldMap) Has(tag Tag) bool {
 	return ok
 }
 
-//GetField parses of a field with Tag tag. Returned reject may indicate the field is not present, or the field value is invalid.
+// GetField parses of a field with Tag tag. Returned reject may indicate the field is not present, or the field value is invalid.
 func (m FieldMap) GetField(tag Tag, parser FieldValueReader) MessageRejectError {
 	m.rwLock.RLock()
 	defer m.rwLock.RUnlock()
@@ -113,19 +113,24 @@ func (m FieldMap) GetField(tag Tag, parser FieldValueReader) MessageRejectError 
 
 // GetFieldIndex parses of a field with Tag tag. Returned reject may indicate the field is not present, or the field value is invalid.
 func (m FieldMap) GetFieldIndex(tag Tag, parser FieldValueReader, i int) MessageRejectError {
+	m.rwLock.RLock()
+	defer m.rwLock.RUnlock()
+
 	f, ok := m.tagLookup[tag]
 	if !ok {
 		return ConditionallyRequiredFieldMissing(tag)
 	}
 
-	if err := parser.Read(f[i].value); err != nil {
+	f2 := f[:cap(f)]
+
+	if err := parser.Read(f2[i].value); err != nil {
 		return IncorrectDataFormatForValue(tag)
 	}
 
 	return nil
 }
 
-//GetBytes is a zero-copy GetField wrapper for []bytes fields
+// GetBytes is a zero-copy GetField wrapper for []bytes fields
 func (m FieldMap) GetBytes(tag Tag) ([]byte, MessageRejectError) {
 	m.rwLock.RLock()
 	defer m.rwLock.RUnlock()
@@ -138,7 +143,7 @@ func (m FieldMap) GetBytes(tag Tag) ([]byte, MessageRejectError) {
 	return f[0].value, nil
 }
 
-//GetBool is a GetField wrapper for bool fields
+// GetBool is a GetField wrapper for bool fields
 func (m FieldMap) GetBool(tag Tag) (bool, MessageRejectError) {
 	var val FIXBoolean
 	if err := m.GetField(tag, &val); err != nil {
@@ -147,7 +152,7 @@ func (m FieldMap) GetBool(tag Tag) (bool, MessageRejectError) {
 	return bool(val), nil
 }
 
-//GetInt is a GetField wrapper for int fields
+// GetInt is a GetField wrapper for int fields
 func (m FieldMap) GetInt(tag Tag) (int, MessageRejectError) {
 	bytes, err := m.GetBytes(tag)
 	if err != nil {
@@ -162,7 +167,7 @@ func (m FieldMap) GetInt(tag Tag) (int, MessageRejectError) {
 	return int(val), err
 }
 
-//GetTime is a GetField wrapper for utc timestamp fields
+// GetTime is a GetField wrapper for utc timestamp fields
 func (m FieldMap) GetTime(tag Tag) (t time.Time, err MessageRejectError) {
 	m.rwLock.RLock()
 	defer m.rwLock.RUnlock()
@@ -180,7 +185,7 @@ func (m FieldMap) GetTime(tag Tag) (t time.Time, err MessageRejectError) {
 	return val.Time, err
 }
 
-//GetString is a GetField wrapper for string fields
+// GetString is a GetField wrapper for string fields
 func (m FieldMap) GetString(tag Tag) (string, MessageRejectError) {
 	var val FIXString
 	if err := m.GetField(tag, &val); err != nil {
@@ -191,18 +196,29 @@ func (m FieldMap) GetString(tag Tag) (string, MessageRejectError) {
 
 // GetStrings is a GetField wrapper for string fields
 func (m FieldMap) GetStrings(tag Tag) ([]string, MessageRejectError) {
+	m.rwLock.RLock()
+	defer m.rwLock.RUnlock()
+
+	f, ok := m.tagLookup[tag]
+	if !ok {
+		return []string{}, ConditionallyRequiredFieldMissing(tag)
+	}
+
+	f2 := f[:cap(f)]
+
 	var strs []string
-	for i := range m.tagLookup[tag] {
+	for i := range f2 {
 		var val FIXString
-		if err := m.GetFieldIndex(tag, &val, i); err != nil {
-			return []string{""}, err
+		if err := val.Read(f2[i].value); err != nil {
+			return []string{}, IncorrectDataFormatForValue(tag)
 		}
 		strs = append(strs, string(val))
 	}
+
 	return strs, nil
 }
 
-//GetGroup is a Get function specific to Group Fields.
+// GetGroup is a Get function specific to Group Fields.
 func (m FieldMap) GetGroup(parser FieldGroupReader) MessageRejectError {
 	m.rwLock.RLock()
 	defer m.rwLock.RUnlock()
@@ -222,35 +238,35 @@ func (m FieldMap) GetGroup(parser FieldGroupReader) MessageRejectError {
 	return nil
 }
 
-//SetField sets the field with Tag tag
+// SetField sets the field with Tag tag
 func (m *FieldMap) SetField(tag Tag, field FieldValueWriter) *FieldMap {
 	return m.SetBytes(tag, field.Write())
 }
 
-//SetBytes sets bytes
+// SetBytes sets bytes
 func (m *FieldMap) SetBytes(tag Tag, value []byte) *FieldMap {
 	f := m.getOrCreate(tag)
 	initField(f, tag, value)
 	return m
 }
 
-//SetBool is a SetField wrapper for bool fields
+// SetBool is a SetField wrapper for bool fields
 func (m *FieldMap) SetBool(tag Tag, value bool) *FieldMap {
 	return m.SetField(tag, FIXBoolean(value))
 }
 
-//SetInt is a SetField wrapper for int fields
+// SetInt is a SetField wrapper for int fields
 func (m *FieldMap) SetInt(tag Tag, value int) *FieldMap {
 	v := FIXInt(value)
 	return m.SetBytes(tag, v.Write())
 }
 
-//SetString is a SetField wrapper for string fields
+// SetString is a SetField wrapper for string fields
 func (m *FieldMap) SetString(tag Tag, value string) *FieldMap {
 	return m.SetBytes(tag, []byte(value))
 }
 
-//Clear purges all fields from field map
+// Clear purges all fields from field map
 func (m *FieldMap) Clear() {
 	m.rwLock.Lock()
 	defer m.rwLock.Unlock()
@@ -261,7 +277,7 @@ func (m *FieldMap) Clear() {
 	}
 }
 
-//CopyInto overwrites the given FieldMap with this one
+// CopyInto overwrites the given FieldMap with this one
 func (m *FieldMap) CopyInto(to *FieldMap) {
 	m.rwLock.RLock()
 	defer m.rwLock.RUnlock()
@@ -304,14 +320,14 @@ func (m *FieldMap) getOrCreate(tag Tag) field {
 	return f
 }
 
-//Set is a setter for fields
+// Set is a setter for fields
 func (m *FieldMap) Set(field FieldWriter) *FieldMap {
 	f := m.getOrCreate(field.Tag())
 	initField(f, field.Tag(), field.Write())
 	return m
 }
 
-//SetGroup is a setter specific to group fields
+// SetGroup is a setter specific to group fields
 func (m *FieldMap) SetGroup(field FieldGroupWriter) *FieldMap {
 	m.rwLock.Lock()
 	defer m.rwLock.Unlock()
