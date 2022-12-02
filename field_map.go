@@ -208,6 +208,10 @@ func (m FieldMap) GetStrings(tag Tag) ([]string, MessageRejectError) {
 
 	var strs []string
 	for i := range f2 {
+		if f2[i].tag != tag {
+			continue
+		}
+
 		var val FIXString
 		if err := val.Read(f2[i].value); err != nil {
 			return []string{}, IncorrectDataFormatForValue(tag)
