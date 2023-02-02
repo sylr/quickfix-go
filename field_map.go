@@ -210,7 +210,7 @@ func (m FieldMap) GetGroup(parser FieldGroupReader) MessageRejectError {
 	return nil
 }
 
-// SetField sets the field with Tag tag
+// SetField sets the field with Tag tag.
 func (m *FieldMap) SetField(tag Tag, field FieldValueWriter) *FieldMap {
 	return m.SetBytes(tag, field.Write())
 }
@@ -227,7 +227,6 @@ func (m *FieldMap) SetBool(tag Tag, value bool) *FieldMap {
 	return m.SetField(tag, FIXBoolean(value))
 }
 
-// SetInt is a SetField wrapper for int fields
 // SetInt is a SetField wrapper for int fields.
 func (m *FieldMap) SetInt(tag Tag, value int) *FieldMap {
 	v := FIXInt(value)

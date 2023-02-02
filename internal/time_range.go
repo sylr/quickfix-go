@@ -120,7 +120,6 @@ func (r *TimeRange) isInWeekRange(t time.Time) bool {
 	return true
 }
 
-// IsInRange returns true if time t is within in the time range
 // IsInRange returns true if time t is within in the time range.
 func (r *TimeRange) IsInRange(t time.Time) bool {
 	if r == nil {

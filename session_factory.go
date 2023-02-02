@@ -393,7 +393,7 @@ func (f sessionFactory) buildInitiatorSettings(session *session, settings *Sessi
 		}
 
 		if session.LogoutTimeout <= 0 {
-			return errors.New("LogonTimeout must be greater than zero")
+			return errors.New("LogoutTimeout must be greater than zero")
 		}
 	}
 
