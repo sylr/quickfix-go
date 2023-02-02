@@ -1,3 +1,18 @@
+// Copyright (c) quickfixengine.org  All rights reserved.
+//
+// This file may be distributed under the terms of the quickfixengine.org
+// license as defined by quickfixengine.org and appearing in the file
+// LICENSE included in the packaging of this file.
+//
+// This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING
+// THE WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A
+// PARTICULAR PURPOSE.
+//
+// See http://www.quickfixengine.org/LICENSE for licensing information.
+//
+// Contact ask@quickfixengine.org if any conditions of this licensing
+// are not clear to you.
+
 package quickfix
 
 import (
@@ -290,7 +305,7 @@ func (a *Acceptor) handleConnection(netConn net.Conn) {
 	}
 
 	localConnectionPort := netConn.LocalAddr().(*net.TCPAddr).Port
-	if expectedPort, ok := a.sessionHostPort[sessID]; !ok || expectedPort != localConnectionPort {
+	if expectedPort, ok := a.sessionHostPort[sessID]; ok && expectedPort != localConnectionPort {
 		a.globalLog.OnEventf("Session %v not found for incoming message: %s", sessID, msgBytes)
 		return
 	}
@@ -298,7 +313,7 @@ func (a *Acceptor) handleConnection(netConn net.Conn) {
 	// We have a session ID and a network connection. This seems to be a good place for any custom authentication logic.
 	if a.connectionValidator != nil {
 		if err := a.connectionValidator.Validate(netConn, sessID); err != nil {
-			a.globalLog.OnEventf("Unable to validate a connection %v", err.Error())
+			a.globalLog.OnEventf("Unable to validate a connection for session %v: %v", sessID, err.Error())
 			return
 		}
 	}
@@ -328,7 +343,7 @@ func (a *Acceptor) handleConnection(netConn net.Conn) {
 	msgOut := make(chan []byte)
 
 	if err := session.connect(msgIn, msgOut); err != nil {
-		a.globalLog.OnEventf("Unable to accept %v", err.Error())
+		a.globalLog.OnEventf("Unable to accept session %v connection: %v", sessID, err.Error())
 		return
 	}
 

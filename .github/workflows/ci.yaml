@@ -30,10 +30,17 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          version: latest
-      - name: Test style
-        run: make test-style
+          go-version: '1.18'
+      - name: Install golangci-lint
+        run: |
+          curl -sSLO https://github.com/golangci/golangci-lint/releases/download/v$GOLANGCI_LINT_VERSION/golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64.tar.gz
+          tar -xf golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64.tar.gz
+          sudo mv golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
+          rm -rf golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64*
+        env:
+          GOLANGCI_LINT_VERSION: '1.50.1'
+      - name: Run Lint
+        run: make lint
 
   build:
     name: build
@@ -42,26 +49,33 @@ jobs:
       matrix:
         go: [1.19]
         fix-version:
-          - FIX_TEST=
-          - FIX_TEST=fix40
-          - FIX_TEST=fix41
-          - FIX_TEST=fix42
-          - FIX_TEST=fix43
-          - FIX_TEST=fix44
-          - FIX_TEST=fix50
-          - FIX_TEST=fix50sp1
-          - FIX_TEST=fix50sp2
+          -
+          - fix40
+          - fix41
+          - fix42
+          - fix43
+          - fix44
+          - fix50
+          - fix50sp1
+          - fix50sp2
     steps:
       - name: Setup
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
       - name: Check out source
-        uses: actions/checkout@v3
-      - name: Run Mongo
-        run: docker run -d -p 27017:27017 mongo:5
+        uses: actions/checkout@v2
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.8.0
+        with:
+          mongodb-replica-set: replicaset
+      - name: Install ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
       - name: Test
         env:
-          GO111MODULE: "on"
-          MONGODB_TEST_CXN: "localhost"
-        run: if [ -z "$FIX_TEST" ]; then make all; else make generate; make build_accept; make $FIX_TEST; fi
+          GO111MODULE: on
+          MONGODB_TEST_CXN: mongodb://localhost:27017
+          FIX_TEST: ${{ matrix.fix-version }}
+        run: if [ -z $FIX_TEST ]; then make build-src && make test-ci; else make generate-ci && make build && make $FIX_TEST; fi
