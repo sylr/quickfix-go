@@ -13,33 +13,37 @@
 // Contact ask@quickfixengine.org if any conditions of this licensing
 // are not clear to you.
 
-package quickfix
+package file
 
 import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/quickfixgo/quickfix"
+	"github.com/quickfixgo/quickfix/internal/testsuite"
+	assert2 "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
 // FileStoreTestSuite runs all tests in the MessageStoreTestSuite against the FileStore implementation.
 type FileStoreTestSuite struct {
-	MessageStoreTestSuite
+	testsuite.StoreTestSuite
 	fileStoreRootPath string
 }
 
 func (suite *FileStoreTestSuite) SetupTest() {
 	suite.fileStoreRootPath = path.Join(os.TempDir(), fmt.Sprintf("FileStoreTestSuite-%d", os.Getpid()))
 	fileStorePath := path.Join(suite.fileStoreRootPath, fmt.Sprintf("%d", time.Now().UnixNano()))
-	sessionID := SessionID{BeginString: "FIX.4.4", SenderCompID: "SENDER", TargetCompID: "TARGET"}
+	sessionID := quickfix.SessionID{BeginString: "FIX.4.4", SenderCompID: "SENDER", TargetCompID: "TARGET"}
 
 	// create settings
-	settings, err := ParseSettings(strings.NewReader(fmt.Sprintf(`
+	settings, err := quickfix.ParseSettings(strings.NewReader(fmt.Sprintf(`
 [DEFAULT]
 FileStorePath=%s
 
@@ -50,15 +54,26 @@ TargetCompID=%s`, fileStorePath, sessionID.BeginString, sessionID.SenderCompID, 
 	require.Nil(suite.T(), err)
 
 	// create store
-	suite.msgStore, err = NewFileStoreFactory(settings).Create(sessionID)
+	suite.MsgStore, err = NewStoreFactory(settings).Create(sessionID)
 	require.Nil(suite.T(), err)
 }
 
 func (suite *FileStoreTestSuite) TearDownTest() {
-	suite.msgStore.Close()
+	suite.MsgStore.Close()
 	os.RemoveAll(suite.fileStoreRootPath)
 }
 
 func TestFileStoreTestSuite(t *testing.T) {
 	suite.Run(t, new(FileStoreTestSuite))
+}
+
+func TestStringParse(t *testing.T) {
+	assert := assert2.New(t)
+	i, err := strconv.Atoi(strings.Trim("00005\n", "\r\n"))
+	assert.Nil(err)
+	assert.Equal(5, i)
+
+	i, err = strconv.Atoi(strings.Trim("00006\r", "\r\n"))
+	assert.Nil(err)
+	assert.Equal(6, i)
 }

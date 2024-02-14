@@ -76,15 +76,20 @@ func SendToTarget(m Messagable, sessionID SessionID) error {
 	return session.queueForSend(msg)
 }
 
-// SendReject is a helper function which allows to send an error outside of the
-// quickfix application methods. Useful when doing asynchronous work.
-func SendReject(m *Message, sessionID SessionID, rej MessageRejectError) error {
+// ResetSession resets session's sequence numbers.
+func ResetSession(sessionID SessionID) error {
 	session, ok := lookupSession(sessionID)
 	if !ok {
 		return errUnknownSession
 	}
+	session.log.OnEvent("Session reset")
+	session.State.ShutdownNow(session)
+	if err := session.dropAndReset(); err != nil {
+		session.logError(err)
+		return err
+	}
 
-	return session.doReject(m, rej)
+	return nil
 }
 
 // UnregisterSession removes a session from the set of known sessions.

@@ -367,6 +367,11 @@ func (s *session) EnqueueBytesAndSend(msg []byte) {
 }
 
 func (s *session) sendBytes(msg []byte) {
+	if s.messageOut == nil {
+		s.log.OnEventf("Failed to send: disconnected")
+		return
+	}
+
 	s.log.OnOutgoing(msg)
 	s.messageOut <- msg
 	s.stateTimer.Reset(s.HeartBtInt)
@@ -516,10 +521,14 @@ func (s *session) verifySelect(msg *Message, checkTooHigh bool, checkTooLow bool
 		return reject
 	}
 
-	if reject := s.checkSendingTime(msg); reject != nil {
-		return reject
+	switch s.stateMachine.State.(type) {
+	case resendState:
+		//Don't check staleness of a replay
+	default:
+		if reject := s.checkSendingTime(msg); reject != nil {
+			return reject
+		}
 	}
-
 	if checkTooLow {
 		if reject := s.checkTargetTooLow(msg); reject != nil {
 			return reject

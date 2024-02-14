@@ -137,11 +137,11 @@ func validateFIXT(transportDD, appDD *datadictionary.DataDictionary, settings Va
 	}
 
 	if settings.RejectInvalidMessage {
-		if err := validateWalk(transportDD, appDD, msgType, msg); err != nil {
+		if err := validateFields(transportDD, appDD, msgType, msg); err != nil {
 			return err
 		}
 
-		if err := validateFields(transportDD, appDD, msgType, msg); err != nil {
+		if err := validateWalk(transportDD, appDD, msgType, msg); err != nil {
 			return err
 		}
 	}
@@ -246,6 +246,7 @@ func validateVisitGroupField(fieldDef *datadictionary.FieldDef, fieldStack []Tag
 			if childDefs[0].Required() {
 				return fieldStack, RequiredTagMissing(Tag(childDefs[0].Tag()))
 			}
+			fieldStack = fieldStack[1:]
 		}
 
 		childDefs = childDefs[1:]

@@ -21,33 +21,27 @@ jobs:
     name: Linter
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v3
-      - name: Setup Go
-        uses: actions/setup-go@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.19'
+          go-version: '1.21'
+          cache: false
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          go-version: '1.18'
-      - name: Install golangci-lint
-        run: |
-          curl -sSLO https://github.com/golangci/golangci-lint/releases/download/v$GOLANGCI_LINT_VERSION/golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64.tar.gz
-          tar -xf golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64.tar.gz
-          sudo mv golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
-          rm -rf golangci-lint-$GOLANGCI_LINT_VERSION-linux-amd64*
-        env:
-          GOLANGCI_LINT_VERSION: '1.50.1'
-      - name: Run Lint
-        run: make lint
+          version: v1.51
 
   build:
     name: build
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: [1.19]
+        go: [1.21]
+        store-type:
+          -
+          - memory
+          - file
+          - mongo
         fix-version:
           -
           - fix40
@@ -73,9 +67,15 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.0'
-      - name: Test
+      - name: Unit  test
+        env:
+          FIX_TEST: ${{ matrix.fix-version }}
+          STORE_TYPE: ${{ matrix.store-type }}
+        run: if [ -z $FIX_TEST ] && [ -z $STORE_TYPE ]; then make build-src && make test-ci; fi
+      - name: Acceptance test
         env:
           GO111MODULE: on
           MONGODB_TEST_CXN: mongodb://localhost:27017
           FIX_TEST: ${{ matrix.fix-version }}
-        run: if [ -z $FIX_TEST ]; then make build-src && make test-ci; else make generate-ci && make build && make $FIX_TEST; fi
+          STORE_TYPE: ${{ matrix.store-type }}
+        run: if [ $FIX_TEST ] && [ $STORE_TYPE ]; then make generate-ci && make build && make $FIX_TEST; fi
