@@ -55,11 +55,8 @@ jobs:
           -
           - memory
           - file
-          - mongo
         fix-version:
           -
-          - fix40
-          - fix41
           - fix42
           - fix43
           - fix44
