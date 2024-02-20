@@ -109,7 +109,7 @@ type Message struct {
 // ToMessage returns the message itself.
 func (m *Message) ToMessage() *Message { return m }
 
-// GetFields returns fields as they appear in the raw message
+// GetFields returns fields as they appear in the raw message.
 func (m *Message) GetFields() []TagValue { return m.fields }
 
 // parseError is returned when bytes cannot be parsed as a FIX message.
@@ -155,7 +155,7 @@ func ParseMessageWithDataDictionary(
 	msg *Message,
 	rawMessage *bytes.Buffer,
 	transportDataDictionary *datadictionary.DataDictionary,
-	applicationDataDictionary *datadictionary.DataDictionary,
+	_ *datadictionary.DataDictionary,
 ) (err error) {
 	msg.Header.Clear()
 	msg.Body.Clear()
@@ -317,7 +317,7 @@ func (m *Message) IsMsgTypeOf(msgType string) bool {
 func (m *Message) reverseRoute() *Message {
 	reverseMsg := NewMessage()
 
-	copy := func(src Tag, dest Tag) {
+	tagCopy := func(src Tag, dest Tag) {
 		var field FIXString
 		if m.Header.GetField(src, &field) == nil {
 			if len(field) != 0 {
@@ -326,25 +326,25 @@ func (m *Message) reverseRoute() *Message {
 		}
 	}
 
-	copy(tagSenderCompID, tagTargetCompID)
-	copy(tagSenderSubID, tagTargetSubID)
-	copy(tagSenderLocationID, tagTargetLocationID)
+	tagCopy(tagSenderCompID, tagTargetCompID)
+	tagCopy(tagSenderSubID, tagTargetSubID)
+	tagCopy(tagSenderLocationID, tagTargetLocationID)
 
-	copy(tagTargetCompID, tagSenderCompID)
-	copy(tagTargetSubID, tagSenderSubID)
-	copy(tagTargetLocationID, tagSenderLocationID)
+	tagCopy(tagTargetCompID, tagSenderCompID)
+	tagCopy(tagTargetSubID, tagSenderSubID)
+	tagCopy(tagTargetLocationID, tagSenderLocationID)
 
-	copy(tagOnBehalfOfCompID, tagDeliverToCompID)
-	copy(tagOnBehalfOfSubID, tagDeliverToSubID)
-	copy(tagDeliverToCompID, tagOnBehalfOfCompID)
-	copy(tagDeliverToSubID, tagOnBehalfOfSubID)
+	tagCopy(tagOnBehalfOfCompID, tagDeliverToCompID)
+	tagCopy(tagOnBehalfOfSubID, tagDeliverToSubID)
+	tagCopy(tagDeliverToCompID, tagOnBehalfOfCompID)
+	tagCopy(tagDeliverToSubID, tagOnBehalfOfSubID)
 
 	// Tags added in 4.1.
 	var beginString FIXString
 	if m.Header.GetField(tagBeginString, &beginString) == nil {
 		if string(beginString) != BeginStringFIX40 {
-			copy(tagOnBehalfOfLocationID, tagDeliverToLocationID)
-			copy(tagDeliverToLocationID, tagOnBehalfOfLocationID)
+			tagCopy(tagOnBehalfOfLocationID, tagDeliverToLocationID)
+			tagCopy(tagDeliverToLocationID, tagOnBehalfOfLocationID)
 		}
 	}
 
