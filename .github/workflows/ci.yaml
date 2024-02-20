@@ -81,10 +81,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
         timeout-minutes: 2
-      - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.8.0
-        with:
-          mongodb-replica-set: replicaset
       - name: Install ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -97,7 +93,6 @@ jobs:
       - name: Acceptance test
         env:
           GO111MODULE: on
-          MONGODB_TEST_CXN: mongodb://localhost:27017
           FIX_TEST: ${{ matrix.fix-version }}
           STORE_TYPE: ${{ matrix.store-type }}
         run: if [ $FIX_TEST ] && [ $STORE_TYPE ]; then make generate-ci && make build && make $FIX_TEST; fi
