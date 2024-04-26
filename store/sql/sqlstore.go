@@ -51,9 +51,9 @@ func sqlString(raw string, placeholder placeholderFunc) string {
 	}
 	idx := 0
 	return rePlaceholder.ReplaceAllStringFunc(raw, func(_ string) string {
-		n := placeholder(idx)
+		p := placeholder(idx)
 		idx++
-		return n
+		return p
 	})
 }
 
