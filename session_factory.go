@@ -99,6 +99,18 @@ func (f sessionFactory) newSession(
 		}
 	}
 
+	if settings.HasSetting(config.AllowUnknownMessageFields) {
+		if validatorSettings.AllowUnknownMessageFields, err = settings.BoolSetting(config.AllowUnknownMessageFields); err != nil {
+			return
+		}
+	}
+
+	if settings.HasSetting(config.CheckUserDefinedFields) {
+		if validatorSettings.CheckUserDefinedFields, err = settings.BoolSetting(config.CheckUserDefinedFields); err != nil {
+			return
+		}
+	}
+
 	if sessionID.IsFIXT() {
 		if s.DefaultApplVerID, err = settings.Setting(config.DefaultApplVerID); err != nil {
 			return
@@ -180,6 +192,12 @@ func (f sessionFactory) newSession(
 
 	if settings.HasSetting(config.EnableLastMsgSeqNumProcessed) {
 		if s.EnableLastMsgSeqNumProcessed, err = settings.BoolSetting(config.EnableLastMsgSeqNumProcessed); err != nil {
+			return
+		}
+	}
+
+	if settings.HasSetting(config.EnableNextExpectedMsgSeqNum) {
+		if s.EnableNextExpectedMsgSeqNum, err = settings.BoolSetting(config.EnableNextExpectedMsgSeqNum); err != nil {
 			return
 		}
 	}
@@ -272,7 +290,7 @@ func (f sessionFactory) newSession(
 				for _, dayStr := range dayStrs {
 					day, ok := dayLookup[dayStr]
 					if !ok {
-						err = IncorrectFormatForSetting{Setting: config.Weekdays, Value: weekdaysStr}
+						err = IncorrectFormatForSetting{Setting: config.Weekdays, Value: []byte(weekdaysStr)}
 						return
 					}
 					weekdays = append(weekdays, day)
@@ -303,7 +321,7 @@ func (f sessionFactory) newSession(
 			parseDay := func(setting, dayStr string) (day time.Weekday, err error) {
 				day, ok := dayLookup[dayStr]
 				if !ok {
-					return day, IncorrectFormatForSetting{Setting: setting, Value: dayStr}
+					return day, IncorrectFormatForSetting{Setting: setting, Value: []byte(dayStr)}
 				}
 				return
 			}
@@ -343,7 +361,7 @@ func (f sessionFactory) newSession(
 			s.timestampPrecision = Nanos
 
 		default:
-			err = IncorrectFormatForSetting{Setting: config.TimeStampPrecision, Value: precisionStr}
+			err = IncorrectFormatForSetting{Setting: config.TimeStampPrecision, Value: []byte(precisionStr)}
 			return
 		}
 	}
