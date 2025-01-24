@@ -181,18 +181,6 @@ func ParseMessageWithDataDictionary(
 
 // doParsing executes the message parsing process.
 func doParsing(mp *msgParser) (err error) {
-	mp.msg.Header.rwLock.Lock()
-	defer mp.msg.Header.rwLock.Unlock()
-	mp.msg.Body.rwLock.Lock()
-	defer mp.msg.Body.rwLock.Unlock()
-	mp.msg.Trailer.rwLock.Lock()
-	defer mp.msg.Trailer.rwLock.Unlock()
-
-	// Initialize for parsing.
-	mp.msg.Header.clearNoLock()
-	mp.msg.Body.clearNoLock()
-	mp.msg.Trailer.clearNoLock()
-
 	// Allocate expected message fields in one chunk.
 	fieldCount := bytes.Count(mp.rawBytes, []byte{'\001'})
 	if fieldCount == 0 {
@@ -269,7 +257,7 @@ func doParsing(mp *msgParser) (err error) {
 		}
 
 		if mp.parsedFieldBytes.tag == tagXMLDataLen {
-			xmlDataLen, _ = mp.msg.Header.getIntNoLock(tagXMLDataLen)
+			xmlDataLen, _ = mp.msg.Header.GetInt(tagXMLDataLen)
 		}
 		mp.fieldIndex++
 	}
@@ -294,7 +282,7 @@ func doParsing(mp *msgParser) (err error) {
 		}
 	}
 
-	bodyLength, err := mp.msg.Header.getIntNoLock(tagBodyLength)
+	bodyLength, err := mp.msg.Header.GetInt(tagBodyLength)
 	if err != nil {
 		err = parseError{OrigError: err.Error()}
 	} else if length != bodyLength && !xmlDataMsg {
@@ -479,7 +467,7 @@ func (m *Message) MsgType() (string, MessageRejectError) {
 }
 
 func (m *Message) msgTypeNoLock() (string, MessageRejectError) {
-	return m.Header.getStringNoLock(tagMsgType)
+	return m.Header.GetString(tagMsgType)
 }
 
 // IsMsgTypeOf returns true if the Header contains MsgType (tag 35) field and its value is the specified one.
