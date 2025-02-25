@@ -26,15 +26,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"github.com/quickfixgo/quickfix"
 	"github.com/quickfixgo/quickfix/config"
 )
-
-type msgDef struct {
-	offset int64
-	size   int
-}
 
 type fileStoreFactory struct {
 	settings *quickfix.Settings
@@ -43,18 +37,19 @@ type fileStoreFactory struct {
 type fileStore struct {
 	sessionID          quickfix.SessionID
 	cache              quickfix.MessageStore
-	offsets            sync.Map
 	bodyFname          string
 	headerFname        string
 	sessionFname       string
 	senderSeqNumsFname string
 	targetSeqNumsFname string
-	bodyFile           *os.File
-	headerFile         *os.File
-	sessionFile        *os.File
-	senderSeqNumsFile  *os.File
-	targetSeqNumsFile  *os.File
-	fileSync           bool
+
+	fileMu            sync.Mutex
+	bodyFile          *os.File
+	headerFile        *os.File
+	sessionFile       *os.File
+	senderSeqNumsFile *os.File
+	targetSeqNumsFile *os.File
+	fileSync          bool
 }
 
 // NewStoreFactory returns a file-based implementation of MessageStoreFactory.
@@ -107,7 +102,6 @@ func newFileStore(sessionID quickfix.SessionID, dirname string, fileSync bool) (
 	store := &fileStore{
 		sessionID:          sessionID,
 		cache:              memStore,
-		offsets:            sync.Map{},
 		bodyFname:          path.Join(dirname, fmt.Sprintf("%s.%s", sessionPrefix, "body")),
 		headerFname:        path.Join(dirname, fmt.Sprintf("%s.%s", sessionPrefix, "header")),
 		sessionFname:       path.Join(dirname, fmt.Sprintf("%s.%s", sessionPrefix, "session")),
@@ -199,18 +193,6 @@ func (store *fileStore) Refresh() (err error) {
 }
 
 func (store *fileStore) populateCache() (creationTimePopulated bool, err error) {
-	if tmpHeaderFile, err := os.Open(store.headerFname); err == nil {
-		defer tmpHeaderFile.Close()
-		for {
-			var seqNum, size int
-			var offset int64
-			if cnt, err := fmt.Fscanf(tmpHeaderFile, "%d,%d,%d\n", &seqNum, &offset, &size); err != nil || cnt != 3 {
-				break
-			}
-			store.offsets.Store(seqNum, msgDef{offset: offset, size: size})
-		}
-	}
-
 	if timeBytes, err := os.ReadFile(store.sessionFname); err == nil {
 		var ctime time.Time
 		if err := ctime.UnmarshalText(timeBytes); err == nil {
@@ -239,6 +221,9 @@ func (store *fileStore) populateCache() (creationTimePopulated bool, err error) 
 }
 
 func (store *fileStore) setSession() error {
+	store.fileMu.Lock()
+	defer store.fileMu.Unlock()
+
 	if _, err := store.sessionFile.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("unable to rewind file: %s: %s", store.sessionFname, err.Error())
 	}
@@ -259,6 +244,8 @@ func (store *fileStore) setSession() error {
 }
 
 func (store *fileStore) setSeqNum(f *os.File, seqNum int) error {
+	store.fileMu.Lock()
+	defer store.fileMu.Unlock()
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("unable to rewind file: %s: %s", f.Name(), err.Error())
 	}
@@ -325,6 +312,8 @@ func (store *fileStore) SetCreationTime(_ time.Time) {
 }
 
 func (store *fileStore) SaveMessage(seqNum int, msg []byte) error {
+	store.fileMu.Lock()
+	defer store.fileMu.Unlock()
 	offset, err := store.bodyFile.Seek(0, io.SeekEnd)
 	if err != nil {
 		return fmt.Errorf("unable to seek to end of file: %s: %s", store.bodyFname, err.Error())
@@ -348,7 +337,6 @@ func (store *fileStore) SaveMessage(seqNum int, msg []byte) error {
 		}
 	}
 
-	store.offsets.Store(seqNum, msgDef{offset: offset, size: len(msg)})
 	return nil
 }
 
@@ -360,34 +348,41 @@ func (store *fileStore) SaveMessageAndIncrNextSenderMsgSeqNum(seqNum int, msg []
 	return store.IncrNextSenderMsgSeqNum()
 }
 
-func (store *fileStore) getMessage(seqNum int) (msg []byte, found bool, err error) {
-	msgInfoTemp, found := store.offsets.Load(seqNum)
-	if !found {
-		return
-	}
-	msgInfo, ok := msgInfoTemp.(msgDef)
-	if !ok {
-		return nil, true, fmt.Errorf("incorrect msgInfo type while reading file: %s", store.bodyFname)
-	}
-
-	msg = make([]byte, msgInfo.size)
-	if _, err = store.bodyFile.ReadAt(msg, msgInfo.offset); err != nil {
-		return nil, true, fmt.Errorf("unable to read from file: %s: %s", store.bodyFname, err.Error())
-	}
-
-	return msg, true, nil
-}
-
 func (store *fileStore) IterateMessages(beginSeqNum, endSeqNum int, cb func([]byte) error) error {
-	for seqNum := beginSeqNum; seqNum <= endSeqNum; seqNum++ {
-		m, found, err := store.getMessage(seqNum)
-		if err != nil {
-			return err
-		}
-		if found {
-			if err = cb(m); err != nil {
-				return err
+	store.fileMu.Lock()
+	defer store.fileMu.Unlock()
+
+	// Sync files and seek to start of header file
+	if err := store.bodyFile.Sync(); err != nil {
+		return fmt.Errorf("unable to flush file: %s: %s", store.bodyFname, err.Error())
+	} else if err = store.headerFile.Sync(); err != nil {
+		return fmt.Errorf("unable to flush file: %s: %s", store.headerFname, err.Error())
+	} else if _, err = store.headerFile.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("unable to seek to start of file: %s: %s", store.headerFname, err.Error())
+	}
+
+	// Iterate over the header file
+	for {
+		var seqNum, size int
+		var offset int64
+		if cnt, err := fmt.Fscanf(store.headerFile, "%d,%d,%d\n", &seqNum, &offset, &size); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
 			}
+			return fmt.Errorf("unable to read from file: %s: %s", store.headerFname, err.Error())
+		} else if cnt < 3 || seqNum > endSeqNum {
+			// If we have reached the end of possible iteration then break
+			break
+		} else if seqNum < beginSeqNum {
+			// If we have not yet reached the starting sequence number then continue
+			continue
+		}
+		// Otherwise process the file
+		msg := make([]byte, size)
+		if _, err := store.bodyFile.ReadAt(msg, offset); err != nil {
+			return fmt.Errorf("unable to read from file: %s: %s", store.bodyFname, err.Error())
+		} else if err = cb(msg); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -404,19 +399,19 @@ func (store *fileStore) GetMessages(beginSeqNum, endSeqNum int) ([][]byte, error
 
 // Close closes the store's files.
 func (store *fileStore) Close() error {
-	if err := closeFile(store.bodyFile); err != nil {
+	if err := closeSyncFile(store.bodyFile); err != nil {
 		return err
 	}
-	if err := closeFile(store.headerFile); err != nil {
+	if err := closeSyncFile(store.headerFile); err != nil {
 		return err
 	}
-	if err := closeFile(store.sessionFile); err != nil {
+	if err := closeSyncFile(store.sessionFile); err != nil {
 		return err
 	}
-	if err := closeFile(store.senderSeqNumsFile); err != nil {
+	if err := closeSyncFile(store.senderSeqNumsFile); err != nil {
 		return err
 	}
-	if err := closeFile(store.targetSeqNumsFile); err != nil {
+	if err := closeSyncFile(store.targetSeqNumsFile); err != nil {
 		return err
 	}
 
